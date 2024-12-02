@@ -28,7 +28,7 @@ const addUser = async (req, res) => {
         role: req.body.role
     }
     const user = await userSchema.create(newUser)
-    await Email.sendingmail(user.email, "Login Acknowledge", "Welcome Makkan Estate")
+    await Mail.sendingmail(user.email, "Login Acknowledge", "Welcome To Prime Property Explorer")
     if (user) {
         const token = tokenUtil.generateToken(user.toObject())
         res.status(201).json({
