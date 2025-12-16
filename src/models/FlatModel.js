@@ -1,49 +1,103 @@
-const mongoose = require('mongoose')
-const Schema = mongoose.Schema
+const mongoose = require('mongoose');
+const Schema = mongoose.Schema;
 
-const flatSchema = new Schema({
-
-    type:{
-        type:String
+const FlatSchema = new Schema({
+    // NEW FIELDS - Add these
+    title: {
+        type: String,
+        required: true,
+        trim: true
     },
-    interiorType:{
-        type:String,
+    description: {
+        type: String,
+        required: true
     },
-    sqrft:{
-        type:String
+    
+    // EXISTING FIELDS
+    type: {
+        type: String,
+        required: true
     },
-    price:{
-        type:String
+    interiorType: {
+        type: String,
+        required: true
     },
-    status:{
-        type:String
+    sqrft: {  // Keep the name as is (your existing field)
+        type: Number,  // CHANGED from String to Number
+        required: true
     },
-    location:{
-        type:String
+    price: {
+        type: Number,  // CHANGED from String to Number
+        required: true
     },
-    user:{
-        type:Schema.Types.ObjectId,
-        ref: "User"
+    status: {
+        type: String,
+        enum: ['Available', 'Sold', 'Reserved', 'Rented'],
+        default: 'Available'
     },
-    review:{
-        type:String
+    location: {
+        type: String,
+        required: true
     },
-    avialablityForRent:{
-        type:String
+    
+    // NEW FIELDS - Add these
+    address: {
+        type: String,
+        required: true
     },
-    society:{
+    city: {
+        type: String,
+        required: true
+    },
+    pincode: {
+        type: String,
+        required: true
+    },
+    
+    // NEW FIELDS for Flat specific
+    floorNumber: {
+        type: Number,
+        default: 0
+    },
+    totalFloors: {
+        type: Number,
+        default: 1
+    },
+    parking: {
+        type: Number,
+        default: 0
+    },
+    
+    // EXISTING FIELDS
+    user: {
         type: Schema.Types.ObjectId,
-        ref: "Society"
+        ref: "User",
+        required: true
     },
-    city:{
-        type:String,
+    review: {
+        type: String,
+        default: ''
     },
-    address:{
-        type:String
+    
+    // RENAMED FIELD
+    availableForRent: {  // Keep your existing name
+        type: Boolean,  // CHANGED from String to Boolean
+        default: false
     },
-    imgUrl:{
-        type:String
+    isAvailableForSale: {  // NEW FIELD
+        type: Boolean,
+        default: true
+    },
+    
+    society: {
+        type: String,  // CHANGED from ObjectId to String (simple text)
+        default: ''
+    },
+    imgUrl: {
+        type: String
     }
-})
+}, {
+    timestamps: true
+});
 
-module.exports = mongoose.model("Flat",flatSchema)
+module.exports = mongoose.model("Flat", FlatSchema);

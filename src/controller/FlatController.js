@@ -1,159 +1,238 @@
-const flatschema = require('../models/FlatModel')
-const multer = require('multer')
-const cloudinary = require('./CloudinaryUtil')
-const getAllFlat = async (req, res) => {
+const flatschema = require('../models/FlatModel');
+const multer = require('multer');
+const cloudinary = require('./CloudinaryUtil');
 
-    const flats = await flatschema.find().populate(['user', 'society']);
-    res.status(201).json({
-        data: flats,
-        message: "Successfully got all the flats"
-    })  
-}
 const storage = multer.diskStorage({
     destination: "./upload/",
     filename: function (req, file, cb) {
-        cb(null, file.originalname)
+        cb(null, file.originalname);
     }
-})
+});
 
 const upload = multer({
     storage: storage,
     fileFilter: function (req, file, cb) {
-        if (file.mimetype == "image/png" || file.mimetype == "image/jpg" || file.mimetype == "image/jpeg" || file.mimetype == "image/txt") {
+        if (file.mimetype == "image/png" || 
+            file.mimetype == "image/jpg" || 
+            file.mimetype == "image/jpeg") {
             cb(null, true);
-        }
-        else {
+        } else {
             cb(null, false);
         }
     }
-}).single("makaanFile");
+}).single("image");
 
+const getAllFlat = async (req, res) => {
+    try {
+        const flats = await flatschema.find().populate(['user', 'society']);
+        res.status(201).json({
+            success: true,
+            data: flats,
+            message: "Successfully got all the flats"
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: "Error fetching flats",
+            error: error.message
+        });
+    }
+};
 
 const addFlat = async (req, res) => {
-
     try {
-        upload(req, res, async (err) => {
-            if (err) {
-                console.log('if...',err);
-                res.status(500).json({
-                    message: "File Upload Failed"
-                })
-            }
-
-            else {
-                const result = await cloudinary.uploadimg(req.file)
-                console.log("result..",result)
-                const flatDetails = {
-                    type: req.body.type,
-                    interiorType: req.body.interiorType,
-                    sqrFt: req.body.sqrFt,
-                    price: req.body.price,
-                    status: req.body.status,
-                    location: req.body.location,
-                    user: req.body.user,
-                    review: req.body.review,
-                    availabilityForRent: req.body.availabilityForRent,
-                    // society: req.body.society,
-                    address:req.body.address,
-                    city:req.body.city,
-                    imgUrl:result.secure_url
+        await new Promise((resolve, reject) => {
+            upload(req, res, (err) => {
+                if (err) {
+                    console.error('Multer upload error:', err);
+                    return reject(err);
                 }
-            
-                const newFlat = await flatschema.create(flatDetails);
-                res.status(201).json({
-                    data: newFlat,
-                    message: 'New Flat Created'
-                })
-            }
-        })
+                resolve();
+            });
+        });
+
+        console.log('Request body:', req.body);
+        console.log('Request file:', req.file);
+
+        // Get user ID from localStorage/auth
+        // For now, you need to pass a valid user ID from frontend
+        const userId = req.body.user;
+        
+        // Validate user ID
+        if (!userId || userId === 'null' || userId === 'undefined') {
+            return res.status(400).json({
+                success: false,
+                message: 'User ID is required. Please login again.'
+            });
+        }
+
+        let imageUrl = null;
+
+        if (req.file) {
+            imageUrl = req.file.path;
+        }
+
+        // Prepare flat details - FIXED FIELD MAPPING
+        const flatDetails = {
+            title: req.body.title,                    // ✅ Now included
+            description: req.body.description,        // ✅ Now included
+            type: req.body.type,
+            interiorType: req.body.interiorType,
+            sqrft: Number(req.body.sqrft),           // ✅ Now parsed as Number
+            price: Number(req.body.price),           // ✅ Parsed as Number
+            status: req.body.status || 'Available',
+            location: req.body.location,
+            address: req.body.address,
+            city: req.body.city,
+            pincode: req.body.pincode,               // ✅ Now included
+            floorNumber: Number(req.body.floorNumber) || 0,
+            totalFloors: Number(req.body.totalFloors) || 1,
+            parking: Number(req.body.parking) || 0,
+            society: req.body.society || '',
+            user: userId,                             // ✅ Valid user ID
+            review: req.body.review || '',
+            availableForRent: req.body.availableForRent === 'true',  // ✅ Parse boolean
+            imgUrl: imageUrl,
+        };
+
+        console.log('Flat details to save:', flatDetails);
+
+        const newFlat = await flatschema.create(flatDetails);
+
+        return res.status(201).json({
+            success: true,
+            data: newFlat,
+            message: 'New Flat Created Successfully'
+        });
+
+    } catch (error) {
+        console.error('Error processing property data:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Error processing property data',
+            error: error.message
+        });
     }
-    catch (error) {
-        console.log(error);
-        res.status(500).json({
-            message: "File Upload Failed"
-        })
-    }
-    
-}
+};
 
 const deleteFlat = async (req, res) => {
-    const id = req.params.id;
-    const removeFlat = await flatschema.findByIdAndDelete(id)
-    if (removeFlat) {
-        res.status(200).json({
-            data: removeFlat,
-            message: 'Deleted Successfully'
-        })
+    try {
+        const id = req.params.id;
+        const removeFlat = await flatschema.findByIdAndDelete(id);
+        
+        if (removeFlat) {
+            res.status(200).json({
+                success: true,
+                data: removeFlat,
+                message: 'Deleted Successfully'
+            });
+        } else {
+            res.status(404).json({
+                success: false,
+                message: 'No such flat found'
+            });
+        }
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Error deleting flat',
+            error: error.message
+        });
     }
-    else {
-        res.status(404).json({
-            message: 'No such flat found'
-        })
-    }
-}
-const updateFlat = async (req, res) => {
+};
 
-    const id = req.params.id;
-    const updatedFlat = await flatschema.findByIdAndUpdate(id, req.body)
-    if (updatedFlat) {
-        res.status(201).json({
-            data: updatedFlat,
-            message: "Updated Successfully"
-        })
+const updateFlat = async (req, res) => {
+    try {
+        const id = req.params.id;
+        const updatedFlat = await flatschema.findByIdAndUpdate(
+            id, 
+            req.body,
+            { new: true }
+        );
+        
+        if (updatedFlat) {
+            res.status(201).json({
+                success: true,
+                data: updatedFlat,
+                message: "Updated Successfully"
+            });
+        } else {
+            res.status(404).json({
+                success: false,
+                message: "No Such Flat Updated"
+            });
+        }
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: "Error updating flat",
+            error: error.message
+        });
     }
-    else {
-        res.status(404).json({
-            message: "No Such Flat Updated"
-        })
-    }
-}
+};
 
 const getSingleFlat = async (req, res) => {
-
-    const id = req.params.id;
-    const flat = await flatschema.findById(id).populate("society").populate("user")
-    if (flat) {
-        res.status(200).json({
-            data: flat,
-            message: "Flat Fetched Successfully"
-        })
-    }
-    else {
-        res.status(404).json({
-            data: flat,
-            message: "Flat not Fetched Successfully"
-        })
-    }
-
-}
-const getSocietyByFlatId = async (req, res) => {
-    const flatId = req.params.flatId;
-    console.log(flatId);
-
-    const society = await flatschema.findById(flatId).populate('society').populate({
-        path: 'society',
-        populate: {
-            path: 'amenities', // This populates the 'amenities' field in the 'society' document
-            model: 'Amenities' // Ensure 'Amenities' model is imported and correctly referenced
+    try {
+        const id = req.params.id;
+        const flat = await flatschema.findById(id).populate("society").populate("user");
+        
+        if (flat) {
+            res.status(200).json({
+                success: true,
+                data: flat,
+                message: "Flat Fetched Successfully"
+            });
+        } else {
+            res.status(404).json({
+                success: false,
+                message: "Flat not Fetched Successfully"
+            });
         }
-    });
-    console.log(society);
-    if (society) {
-        res.status(200).json({
-            data: society.society,
-            message: "Society Fetch Successfully"
-        })
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: "Error fetching flat",
+            error: error.message
+        });
     }
-    else {
-        res.status(200).json({
-            data: society.society,
-            message: "Society Fetch Successfully"
-        })
+};
+
+const getSocietyByFlatId = async (req, res) => {
+    try {
+        const flatId = req.params.flatId;
+        console.log(flatId);
+
+        const society = await flatschema.findById(flatId).populate('society').populate({
+            path: 'society',
+            populate: {
+                path: 'amenities',
+                model: 'Amenities'
+            }
+        });
+        
+        console.log(society);
+        
+        if (society) {
+            res.status(200).json({
+                success: true,
+                data: society.society,
+                message: "Society Fetch Successfully"
+            });
+        } else {
+            res.status(404).json({
+                success: false,
+                data: null,
+                message: "Society Not Found"
+            });
+        }
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: "Error fetching society",
+            error: error.message
+        });
     }
-
-
-}
-
+};
 
 module.exports = {
     getAllFlat,
@@ -162,4 +241,4 @@ module.exports = {
     updateFlat,
     getSingleFlat,
     getSocietyByFlatId
-}
+};

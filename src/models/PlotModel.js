@@ -1,4 +1,5 @@
 const mongoose = require( 'mongoose' );
+const { string } = require('zod');
 const Schema = mongoose.Schema
 
 const PlotSchema = new Schema({
@@ -21,6 +22,9 @@ const PlotSchema = new Schema({
         type:Boolean
     },
     status:{
+        type:String
+    },
+    imgUrl:{
         type:String
     },
     user:{

@@ -5,11 +5,22 @@ const Mail = require('../util/Email')
 const multer = require("multer");
 const cloudinaryUpload = require("./CloudinaryUtil")
 
+const validateUserInput = (req, res, next) => {
+    const { email, password, fullname, mobileNo } = req.body;
+    if (!email || !password || !fullname || !mobileNo) {
+        return res.status(400).json({
+            success: false,
+            message: 'Missing required fields'
+        });
+    }
+    next();
+};
+
+// Add error handling wrapper
+const asyncHandler = (fn) => (req, res, next) =>
+    Promise.resolve(fn(req, res, next)).catch(next);
 
 const getUsers = async (req, res) => {
-
-
-
     const allUsers = await userSchema.find()
     res.status(200).json({
         data: allUsers,
@@ -18,7 +29,6 @@ const getUsers = async (req, res) => {
 }
 
 const addUser = async (req, res) => {
-
     const hashedPassword = await password.hashedpassword(req.body.password);
     const newUser = {
         fullname: req.body.fullname,
@@ -28,7 +38,7 @@ const addUser = async (req, res) => {
         role: req.body.role
     }
     const user = await userSchema.create(newUser)
-    await Mail.sendingmail(user.email, "Login Acknowledge", "Welcome To Prime Property Explorer")
+    await Mail.sendingmail(user.email, "Login Acknowledge", "Welcome To RealNest")
     if (user) {
         const token = tokenUtil.generateToken(user.toObject())
         res.status(201).json({
@@ -61,19 +71,34 @@ const deleteUser = async (req, res) => {
     }
 }
 const updateUser = async (req, res) => {
-
-    const id = req.params.id;
-    const updatedUser = await userSchema.findByIdAndUpdate(id, req.body)
-    if (updatedUser) {
-        res.status(201).json({
-            data: updatedUser,
-            message: "User Updated Successfully"
-        })
-    }
-    else {
-        res.status(404).json({
-            message: "No Such User Updated"
-        })
+    try {
+        const id = req.params.id;
+        
+        // Remove _id and password from update data to prevent issues
+        const { _id, password, ...updateData } = req.body;
+        
+        const updatedUser = await userSchema.findByIdAndUpdate(
+            id, 
+            updateData,
+            { new: true } // This returns the updated document
+        );
+        
+        if (updatedUser) {
+            res.status(201).json({
+                data: updatedUser,
+                message: "User Updated Successfully"
+            });
+        } else {
+            res.status(404).json({
+                message: "No Such User Found"
+            });
+        }
+    } catch (error) {
+        console.error('Update user error:', error);
+        res.status(500).json({
+            message: "Error updating user",
+            error: error.message
+        });
     }
 }
 
@@ -176,5 +201,6 @@ module.exports = {
     deleteUser,
     getSingleUser,
     uploadFile,
-    loginUser
+    loginUser,
+    validateUserInput
 }

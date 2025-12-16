@@ -20,7 +20,9 @@ const addPlot = async(req,res) => {
         review:req.body.review,
         user:req.body.user,
         isAvailableForRent:req.body.isAvailableForRent,
-        status:req.body.status
+        status:req.body.status,
+        imgUrl: result.secure_url, // Cloudinary image URL
+
     }
 
     const newPlot = await plotSchema.create(plotDetails);
