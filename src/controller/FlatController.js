@@ -1,6 +1,7 @@
 const flatschema = require('../models/FlatModel');
 const multer = require('multer');
 const cloudinary = require('./CloudinaryUtil');
+const fs = require('fs');
 
 const storage = multer.diskStorage({
     destination: "./upload/",
@@ -68,32 +69,45 @@ const addFlat = async (req, res) => {
 
         let imageUrl = null;
 
-        if (req.file) {
-            imageUrl = req.file.path;
-        }
-
+if (req.file) {
+    try {
+        const cloudinaryResult = await cloudinary.uploadimg(req.file);
+        imageUrl = cloudinaryResult.secure_url; // Use secure_url from Cloudinary
+        
+        // Optional: Delete local file after successful upload
+        fs.unlinkSync(req.file.path);
+    } catch (uploadError) {
+        console.error('Cloudinary upload error:', uploadError);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to upload image to Cloudinary',
+            error: uploadError.message
+        });
+    }
+}
         // Prepare flat details - FIXED FIELD MAPPING
         const flatDetails = {
-            title: req.body.title,                    // ✅ Now included
-            description: req.body.description,        // ✅ Now included
-            type: req.body.type,
-            interiorType: req.body.interiorType,
-            sqrft: Number(req.body.sqrft),           // ✅ Now parsed as Number
-            price: Number(req.body.price),           // ✅ Parsed as Number
-            status: req.body.status || 'Available',
-            location: req.body.location,
-            address: req.body.address,
-            city: req.body.city,
-            pincode: req.body.pincode,               // ✅ Now included
-            floorNumber: Number(req.body.floorNumber) || 0,
-            totalFloors: Number(req.body.totalFloors) || 1,
-            parking: Number(req.body.parking) || 0,
-            society: req.body.society || '',
-            user: userId,                             // ✅ Valid user ID
-            review: req.body.review || '',
-            availableForRent: req.body.availableForRent === 'true',  // ✅ Parse boolean
-            imgUrl: imageUrl,
-        };
+    title: req.body.title,
+    description: req.body.description,
+    type: req.body.type,
+    interiorType: req.body.interiorType,
+    sqrft: Number(req.body.sqrft),
+    price: Number(req.body.price),
+    status: req.body.status || 'Available',
+    location: req.body.location,
+    address: req.body.address,
+    city: req.body.city,
+    pincode: req.body.pincode,
+    floorNumber: Number(req.body.floorNumber) || 0,
+    totalFloors: Number(req.body.totalFloors) || 1,
+    parking: Number(req.body.parking) || 0,
+    society: req.body.society || '',
+    user: userId,
+    review: req.body.review || '',
+    availableForRent: req.body.availableForRent === 'true',
+    isAvailableForSale: req.body.isAvailableForSale === 'true',  // ✅ Add this
+    imgUrl: imageUrl,
+};
 
         console.log('Flat details to save:', flatDetails);
 
@@ -174,7 +188,7 @@ const updateFlat = async (req, res) => {
 const getSingleFlat = async (req, res) => {
     try {
         const id = req.params.id;
-        const flat = await flatschema.findById(id).populate("society").populate("user");
+        const flat = await flatschema.findById(id).populate("society").populate("user",'fullname email role');
         
         if (flat) {
             res.status(200).json({

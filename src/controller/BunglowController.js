@@ -1,6 +1,7 @@
 const bunglowSchema = require('../models/BunglowModel');
 const multer = require('multer');
 const cloudinary = require('./CloudinaryUtil');
+const fs = require('fs');
 
 // Multer configuration (same as your flat controller)
 const storage = multer.diskStorage({
@@ -55,21 +56,25 @@ const addBunglow = async (req, res) => {
         console.log('Request body:', req.body);
         console.log('Request file:', req.file);
 
-        let imageUrl = null;
+let imageUrl = req.body.imgUrl || null;
 
-        // Store local path (your current approach)
-        if (req.file) {
-            imageUrl = req.file.path;
-            
-            // OR upload to Cloudinary (uncomment if using Cloudinary)
-            /*
-            const result = await cloudinary.uploader.upload(req.file.path, {
-                folder: 'real-estate/bungalows'
-            });
-            imageUrl = result.secure_url;
-            */
-        }
 
+if (req.file) {
+    try {
+        const cloudinaryResult = await cloudinary.uploadimg(req.file);
+        imageUrl = cloudinaryResult.secure_url;
+        
+        // Delete local file after successful upload
+        fs.unlinkSync(req.file.path);
+    } catch (uploadError) {
+        console.error('Cloudinary upload error:', uploadError);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to upload image to Cloudinary',
+            error: uploadError.message
+        });
+    }
+}
         const bunglowDetails = {
             title: req.body.title,
             description: req.body.description,
@@ -88,8 +93,14 @@ const addBunglow = async (req, res) => {
             review: req.body.review || '',
             status: req.body.status || 'Available',
             imgUrl: imageUrl,
-            isAvailableForRent: req.body.isAvailableForRent === 'true',
-            isAvailableForSale: req.body.isAvailableForSale === 'true',
+            isAvailableForRent:
+  req.body.isAvailableForRent === true ||
+  req.body.isAvailableForRent === 'true',
+
+isAvailableForSale:
+  req.body.isAvailableForSale === true ||
+  req.body.isAvailableForSale === 'true',
+
             user: req.body.user
         };
 
@@ -170,7 +181,7 @@ const updateBunglow = async (req, res) => {
 const getSingleBunglow = async (req, res) => {
     try {
         const id = req.params.id;  // CHANGED from req.body.id to req.params.id
-        const bunglow = await bunglowSchema.findById(id).populate('user');
+        const bunglow = await bunglowSchema.findById(id).populate('user','fullname email role');
         
         if (bunglow) {
             res.status(200).json({

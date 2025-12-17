@@ -105,7 +105,7 @@ const updateUser = async (req, res) => {
 const getSingleUser = async (req, res) => {
 
     const id = req.body.id;
-    const user = await userSchema.findOne(id)
+    const user = await userSchema.findById(req.params.id);
     if (user) {
         res.status(200).json({
             data: user,

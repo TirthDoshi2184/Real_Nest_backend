@@ -1,6 +1,7 @@
 const shopSchema = require('../models/ShopModel');
 const multer = require('multer');
 const cloudinary = require('./CloudinaryUtil');
+const fs = require('fs');
 
 // Multer configuration
 const storage = multer.diskStorage({
@@ -55,12 +56,24 @@ const addShops = async (req, res) => {
         console.log('Request body:', req.body);
         console.log('Request file:', req.file);
 
-        let imageUrl = null;
+       let imageUrl = null;
 
-        if (req.file) {
-            imageUrl = req.file.path;
-        }
-
+if (req.file) {
+    try {
+        const cloudinaryResult = await cloudinary.uploadimg(req.file);
+        imageUrl = cloudinaryResult.secure_url;
+        
+        // Delete local file after successful upload
+        fs.unlinkSync(req.file.path);
+    } catch (uploadError) {
+        console.error('Cloudinary upload error:', uploadError);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to upload image to Cloudinary',
+            error: uploadError.message
+        });
+    }
+}
         const newShop = {
             title: req.body.title,
             description: req.body.description,
@@ -161,7 +174,7 @@ const updateShop = async (req, res) => {
 const getSingleShop = async (req, res) => {
     try {
         const id = req.params.id;  // CHANGED from req.body.id
-        const shop = await shopSchema.findById(id).populate('user');
+        const shop = await shopSchema.findById(id).populate('user','fullname email role');
         
         if (shop) {
             res.status(200).json({
